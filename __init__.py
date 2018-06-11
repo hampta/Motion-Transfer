@@ -96,6 +96,7 @@ def exec(skeleton_source,skeleton_target):
 
 	source.select = True
 	bpy.context.scene.objects.active = source
+	source.animation_data.action = None
 
 	bpy.ops.object.duplicate()
 
@@ -147,10 +148,13 @@ def exec(skeleton_source,skeleton_target):
 
 	#Bake animation data
 
-	actioncache = []
+	actioncache = {}
 
 	for a in bpy.data.actions:
-		actioncache.append(a.name)
+		if not a.name in actioncache:
+			actioncache[a.name] = True
+
+	print(actioncache)
 
 	for namev in actioncache:
 		a = bpy.data.actions.get( namev )
@@ -158,8 +162,10 @@ def exec(skeleton_source,skeleton_target):
 		for fcu in a.fcurves:
 			rng = fcu.range()
 			lenv = max(rng[1],lenv)
+		newName = a.name
+		a.name = "old_" + a.name
 		source.animation_data.action = a
-		bakeaction = bpy.data.actions.new( name = namev + "_baked" )
+		bakeaction = bpy.data.actions.new( name = newName )
 		bakeaction.use_fake_user = True
 		final.animation_data.action = bakeaction
 		bpy.ops.nla.bake(frame_start=0, frame_end=lenv, only_selected=False, visual_keying=True, clear_constraints=False, use_current_action=True, bake_types={'POSE'})
