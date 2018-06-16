@@ -38,10 +38,12 @@ class MotionTransfer(bpy.types.Operator):
 
 	searchRadius = bpy.props.FloatProperty(name="Bone Search Radius", description = "If there isn't a matching bone name on the source, we search this far from the head", default = 1 )
 	searchBlacklist = bpy.props.StringProperty(name="Bone Search Blacklist", description = "Ignore bones containing these parameters, separated by commas", default = "dummy" )
+	cleanTransfer = bpy.props.BoolProperty(name="Clean Transfer", description = "Remove all bones which aren't in the target skeleton?", default = False )
 
 	def exec(self,context,skeleton_source,skeleton_target):
 		boneParentsOG = {}
 		boneLinks = {}
+		bonesToClean = {}
 		targetBones = {}
 
 		#Setup source and target
@@ -61,7 +63,7 @@ class MotionTransfer(bpy.types.Operator):
 
 		for bone in target.data.bones:
 			if not bone.parent is None:
-				boneParentsOG[bone.name] = bone.parent.name		
+				boneParentsOG[bone.name] = bone.parent.name
 			else:
 				boneParentsOG[bone.name] = "None"
 
@@ -70,6 +72,7 @@ class MotionTransfer(bpy.types.Operator):
 		for bone in source.data.bones:
 			if bone.name in target.data.bones:
 				boneLinks[bone.name] = bone.name + "_src"
+				bonesToClean[bone.name+"_src"] = True
 				bone.name = bone.name + "_src"
 
 		#Build link cache
@@ -93,9 +96,10 @@ class MotionTransfer(bpy.types.Operator):
 					closestBone = GetClosestBone(source,GetWorldSpaceBonePosition(target,bone),self.searchRadius)
 					if closestBone is not None:
 						boneLinks[bone.name] = closestBone.name
+						bonesToClean[closestBone.name] = True
 
 		#Apply target armature modifier, make them target source
-				
+
 		for ob in context.scene.objects:
 			ob.select = False
 
@@ -154,9 +158,9 @@ class MotionTransfer(bpy.types.Operator):
 			for fcu in a.fcurves:
 				bone = fcu.data_path.split('"')[1]
 				appendedname = bone + "_src"
-				if appendedname in source.data.bones:		
+				if appendedname in source.data.bones:
 					fcu.data_path = fcu.data_path.replace( bone, bone+"_src" )
-		
+
 		#Duplicate source into target as final
 
 		bpy.ops.object.mode_set(mode='OBJECT')
@@ -187,11 +191,16 @@ class MotionTransfer(bpy.types.Operator):
 					if parBoneName in final.data.edit_bones:
 						bone.parent = final.data.edit_bones[parBoneName]
 
+		if self.cleanTransfer:
+			for bone in final.data.edit_bones:
+				if not bone.name in targetBones:
+					final.data.edit_bones.remove( bone )
+		else:
+			for bone in final.data.edit_bones:
+				if bone.name in bonesToClean:
+					final.data.edit_bones.remove( bone )
 
-		for bone in final.data.edit_bones:
-			if not bone.name in targetBones:
-				final.data.edit_bones.remove( bone )
-				
+
 		bpy.ops.object.mode_set(mode='POSE')
 
 		#Remove obsolete constraints
@@ -202,7 +211,7 @@ class MotionTransfer(bpy.types.Operator):
 
 		#Copy positions/rotations from source, for baking
 
-		for bone in final.pose.bones:	
+		for bone in final.pose.bones:
 			if bone.name in source.pose.bones:
 				nc = bone.constraints.new(type='COPY_ROTATION')
 				nc.target = source
@@ -285,7 +294,7 @@ class MotionTransfer(bpy.types.Operator):
 		wm = context.window_manager
 		return wm.invoke_props_dialog(self,640)
 
-def menu_func(self, context):  
+def menu_func(self, context):
 	self.layout.operator(MotionTransfer.bl_idname)
 
 def register():
