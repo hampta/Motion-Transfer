@@ -41,6 +41,11 @@ class MotionTransfer(bpy.types.Operator):
 	cleanTransfer = bpy.props.BoolProperty(name="Clean Transfer", description = "Remove all bones which aren't in the target skeleton?", default = False )
 
 	def exec(self,context,skeleton_source,skeleton_target):
+
+		wm = context.window_manager
+		wm.progress_begin(0, 100)
+		wm.progress_update(0)
+
 		boneParentsOG = {}
 		boneLinks = {}
 		bonesToClean = {}
@@ -161,6 +166,8 @@ class MotionTransfer(bpy.types.Operator):
 				if appendedname in source.data.bones:
 					fcu.data_path = fcu.data_path.replace( bone, bone+"_src" )
 
+		wm.progress_update(5)
+
 		#Duplicate source into target as final
 
 		bpy.ops.object.mode_set(mode='OBJECT')
@@ -222,15 +229,21 @@ class MotionTransfer(bpy.types.Operator):
 				nc_pos.subtarget = bone.name
 				nc_pos.influence = 1
 
+		wm.progress_update(10)
+
 		#Bake animation data
 
-		actioncache = {}
+		actionCache = {}
 
 		for a in bpy.data.actions:
-			if not a.name in actioncache:
-				actioncache[a.name] = True
+			if not a.name in actionCache:
+				actionCache[a.name] = True
 
-		for namev in actioncache:
+		actionCount = len(actionCache)
+
+		counter = 0
+		for namev in actionCache:
+			counter += 1
 			a = bpy.data.actions.get( namev )
 			lenv = 1
 			for fcu in a.fcurves:
@@ -249,6 +262,7 @@ class MotionTransfer(bpy.types.Operator):
 			source.animation_data.action = None
 			a.user_clear()
 			bpy.data.actions.remove( a )
+			wm.progress_update(10 + counter / actionCount * 85)
 
 		#Cleanup Source
 
@@ -272,6 +286,7 @@ class MotionTransfer(bpy.types.Operator):
 		context.scene.objects.active = target
 		target.select = True
 		bpy.ops.object.mode_set(mode='POSE')
+		wm.progress_update(100)
 
 	@classmethod
 	def poll(cls, context):
