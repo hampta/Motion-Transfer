@@ -94,7 +94,7 @@ class MotionTransfer(bpy.types.Operator):
 			if not bone in boneLinks:
 				doLink = True
 				for blacklistString in blacklistTable:
-					if bone.name.find(blacklistString)!=-1:
+					if len(blacklistString)>=1 and bone.name.find(blacklistString)!=-1:
 						print("discovered: " + blacklistString)
 						doLink = False
 				if doLink:
