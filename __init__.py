@@ -286,6 +286,14 @@ class MotionTransfer(bpy.types.Operator):
 		context.scene.objects.active = target
 		target.select = True
 		bpy.ops.object.mode_set(mode='POSE')
+
+		#fix vertex groups
+
+		for poseBone in target.pose.bones:
+			poseBone.name = poseBone.name + "_src"
+			context.scene.update()
+			poseBone.name = poseBone.name[0:-4]
+		context.scene.update()
 		wm.progress_update(100)
 
 	@classmethod
