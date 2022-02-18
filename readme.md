@@ -6,7 +6,10 @@ Motion Transfer is a Blender addon which enables an average user to easily trans
 
 ## Installation
 
+
 1. Download this repository as a zip
+[Download 2.8+](https://github.com/hampta/Motion-Transfer/archive/refs/heads/master.zip)
+[Download 2.79](https://github.com/hampta/Motion-Transfer/archive/refs/heads/2.79.zip)
 2. Install and open Blender, preferably 2.79 or later.
 2. Go to User Preferences, and then Addons.
 3. Using the "install from file" dialogue, pick the zip you downloaded.
