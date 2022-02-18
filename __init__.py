@@ -1,8 +1,8 @@
 bl_info = {
 	"name": "Motion Transfer",
 	"author": "Grey Ruessler",
-	"version": (1, 0, 0),
-	"blender": (2, 79, 0),
+	"version": (1, 1, 0),
+	"blender": (2, 80, 0),
 	"location": "Search > Motion Transfer",
 	"description": "Transfer all animations from the selected armature to the active armature",
 	"warning": "",
@@ -14,7 +14,7 @@ import bpy
 from mathutils import Matrix
 
 def GetWorldSpaceBonePosition(ob,bone):
-	mat = ob.matrix_world * bone.matrix_local
+	mat = ob.matrix_world @ bone.matrix_local
 	loc, rot, scale = mat.decompose()
 	return loc
 
@@ -36,9 +36,9 @@ class MotionTransfer(bpy.types.Operator):
 	bl_label = "Motion Transfer"
 	bl_options = {'REGISTER', 'UNDO'}
 
-	searchRadius = bpy.props.FloatProperty(name="Bone Search Radius", description = "If there isn't a matching bone name on the source, we search this far from the head", default = 1 )
-	searchBlacklist = bpy.props.StringProperty(name="Bone Search Blacklist", description = "Ignore bones containing these parameters, separated by commas", default = "dummy" )
-	cleanTransfer = bpy.props.BoolProperty(name="Clean Transfer", description = "Remove all bones which aren't in the target skeleton?", default = False )
+	searchRadius: bpy.props.FloatProperty(name="Bone Search Radius", description = "If there isn't a matching bone name on the source, we search this far from the head", default = 1 )
+	searchBlacklist: bpy.props.StringProperty(name="Bone Search Blacklist", description = "Ignore bones containing these parameters, separated by commas", default = "dummy" )
+	cleanTransfer: bpy.props.BoolProperty(name="Clean Transfer", description = "Remove all bones which aren't in the target skeleton?", default = False )
 
 	def exec(self,context,skeleton_source,skeleton_target):
 
@@ -56,12 +56,12 @@ class MotionTransfer(bpy.types.Operator):
 		source = skeleton_source
 		target = skeleton_target
 
-		context.scene.objects.active = source
+		context.view_layer.objects.active = source
 		context.object.data.pose_position = 'REST'
-		context.scene.objects.active = target
+		context.view_layer.objects.active = target
 		context.object.data.pose_position = 'POSE'
 
-		context.scene.objects.active = target
+		context.view_layer.objects.active = target
 		bpy.ops.object.mode_set(mode='POSE')
 
 		#Save parents
@@ -105,47 +105,47 @@ class MotionTransfer(bpy.types.Operator):
 
 		#Apply target armature modifier, make them target source
 
-		for ob in context.scene.objects:
-			ob.select = False
+		for ob in context.view_layer.objects:
+			ob.select_set(state=False)
 
-		for ob in context.scene.objects:
-			ob.select = True
-			#context.scene.objects.active = ob
+		for ob in context.view_layer.objects:
+			ob.select_set(state=True)
+			#context.view_layer.objects.active = ob
 			for mod in ob.modifiers:
 				if mod.type == "ARMATURE":
 					if mod.object == target:
 						bpy.ops.object.modifier_apply(apply_as='DATA', modifier = mod.name )
 						ob.modifiers.new(name = 'Skeleton', type = 'ARMATURE')
 						ob.modifiers['Skeleton'].object = source
-			ob.select = False
+			ob.select_set(state=False)
 
 		#Merge a duplicate of the target into source
 
-		target.select = True
-		context.scene.objects.active = target
+		target.select_set(state=True)
+		context.view_layer.objects.active = target
 		bpy.ops.pose.armature_apply()
 
 		bpy.ops.object.mode_set(mode='OBJECT')
 		target_dupe = target.copy()
 		target_dupe.data = target.data.copy()
 		target_dupe.animation_data_clear()
-		context.scene.objects.link(target_dupe)
-		target.select = False
-		source.select = True
-		target_dupe.select = True
-		context.scene.objects.active = source
+		context.collection.objects.link(target_dupe)
+		target.select_set(state=False)
+		source.select_set(state=True)
+		target_dupe.select_set(state=True)
+		context.view_layer.objects.active = source
 		bpy.ops.object.join()
-		source.select = False
-		target.select = True
-		context.scene.objects.active = target
+		source.select_set(state=False)
+		target.select_set(state=True)
+		context.view_layer.objects.active = target
 		#now clean and prepare targe to become our final skeleton
 		bpy.ops.object.mode_set(mode='EDIT')
 		for bone in target.data.edit_bones:
 			target.data.edit_bones.remove(bone)
 		bpy.ops.object.mode_set(mode='OBJECT')
-		context.scene.objects.active = source
-		source.select = True
-		target.select = False
+		context.view_layer.objects.active = source
+		source.select_set(state=True)
+		target.select_set(state=False)
 		#Reparent
 
 		bpy.ops.object.mode_set(mode='EDIT')
@@ -176,14 +176,14 @@ class MotionTransfer(bpy.types.Operator):
 
 		src_dupe = source.copy()
 		src_dupe.data = source.data.copy()
-		context.scene.objects.link(src_dupe)
+		context.collection.objects.link(src_dupe)
 
 
 		final = target
-		source.select = False
-		src_dupe.select = True
-		final.select = True
-		context.scene.objects.active = final
+		source.select_set(state=False)
+		src_dupe.select_set(state=True)
+		final.select_set(state=True)
+		context.view_layer.objects.active = final
 		bpy.ops.object.join()
 
 		#Reparent final skeleton to the original target specs
@@ -270,7 +270,7 @@ class MotionTransfer(bpy.types.Operator):
 			for c in bone.constraints:
 				bone.constraints.remove( c )
 
-		for ob in context.scene.objects:
+		for ob in context.view_layer.objects:
 			if ob.type == "MESH":
 				for mod in ob.modifiers:
 					if mod.type == "ARMATURE":
@@ -279,54 +279,54 @@ class MotionTransfer(bpy.types.Operator):
 				mod.object = final
 				ob.parent = final
 
-		final.select = False
-		source.select = True
-		context.scene.objects.active = source
+		final.select_set(state=False)
+		source.select_set(state=True)
+		context.view_layer.objects.active = source
 		bpy.ops.object.delete()
-		context.scene.objects.active = target
-		target.select = True
+		context.view_layer.objects.active = target
+		target.select_set(state=True)
 		bpy.ops.object.mode_set(mode='POSE')
 
 		#fix vertex groups
 
 		for poseBone in target.pose.bones:
 			poseBone.name = poseBone.name + "_src"
-			context.scene.update()
+			context.view_layer.update()
 			poseBone.name = poseBone.name[0:-4]
-		context.scene.update()
+		context.view_layer.update()
 		wm.progress_update(100)
 
 	@classmethod
 	def poll(cls, context):
 		numSelected = 0
-		for ob in context.scene.objects:
-			if ob.select and ob.type=='ARMATURE':
+		for ob in context.view_layer.objects:
+			if ob.select_get() and ob.type=='ARMATURE':
 				numSelected = numSelected + 1
 		return numSelected>=2
 
 	def execute(self, context):
 		src = None
-		trg = context.scene.objects.active
-		for ob in context.scene.objects:
-			if ob != trg and ob.select and ob.type=='ARMATURE':
+		trg = context.view_layer.objects.active
+		for ob in context.view_layer.objects:
+			if ob != trg and ob.select_get() and ob.type=='ARMATURE':
 				src = ob
 		self.exec(context,src,trg)
 		return {'FINISHED'}
 
 	def invoke(self, context, event):
 		wm = context.window_manager
-		return wm.invoke_props_dialog(self,640)
+		return wm.invoke_props_dialog(self, width=(640 * bpy.context.preferences.system.pixel_size))
 
 def menu_func(self, context):
 	self.layout.operator(MotionTransfer.bl_idname)
 
 def register():
-	bpy.utils.register_module(__name__)
+	bpy.utils.register_class(MotionTransfer)
 	bpy.types.VIEW3D_MT_pose.append(menu_func)
 	bpy.types.VIEW3D_MT_object.append(menu_func)
 
 def unregister():
-	bpy.utils.unregister_module(__name__)
+	bpy.utils.unregister_class(MotionTransfer)
 	bpy.types.VIEW3D_MT_pose.remove(menu_func)
 	bpy.types.VIEW3D_MT_object.remove(menu_func)
 
